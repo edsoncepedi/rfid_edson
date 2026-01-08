@@ -78,10 +78,7 @@ void LerID(void *parameter){
 
     CARTAO.LIDO = true;
     Serial.println("Cartao Lido");
-    
-    digitalWrite(4, HIGH);
-    vTaskDelay(500);
-    digitalWrite(4, LOW);
+
 
 
 //armazenar id na string
@@ -157,6 +154,9 @@ void LerID(void *parameter){
 
   envia_dispositivo(CARTAO.value/*TAG*/ , "rastreio/esp32/posto__/dispositivo", 1); //envia tag
 
+    digitalWrite(4, HIGH);
+    vTaskDelay(500);
+    digitalWrite(4, LOW);
   }
  
  //mfrc522[j].PICC_WakeupA(bufferATQA, &bufferSize); //ficar lendo direto
