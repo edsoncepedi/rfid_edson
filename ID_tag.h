@@ -9,6 +9,7 @@
 #include <MFRC522.h>
 #include "LED.h"
 #include "mqtt_comunicacao.h"
+#include "secrets.h"
 
 TaskHandle_t LerIDHandle = NULL;
 TaskHandle_t monitoramento_Parafusadeira_Task;
@@ -148,11 +149,11 @@ void LerID(void *parameter){
 
     
 
-     envia_dispositivo( "BS" , "rastreio/esp32/posto__/dispositivo", 1); //enviar chegada
+     envia_dispositivo( "BS" , MQTT_TOPIC); //enviar chegada
 
 
 
-  envia_dispositivo(CARTAO.value/*TAG*/ , "rastreio/esp32/posto__/dispositivo", 1); //envia tag
+  envia_dispositivo(CARTAO.value/*TAG*/ , MQTT_TOPIC); //envia tag
 
     digitalWrite(4, HIGH);
     vTaskDelay(500);
@@ -179,7 +180,7 @@ void LerID(void *parameter){
     CARTAO.LIDO = false;
     CARTAO.verificacao = 0;
 
-    envia_dispositivo( "BD" , "rastreio/esp32/posto__/dispositivo", 1); //envia saida
+    envia_dispositivo( "BD" , MQTT_TOPIC); //envia saida
 
 
   }
@@ -301,11 +302,11 @@ void monitoramento_Parafusadeira ( void * pvParameters ) {
 
         if (estadoEstavel_parafusadeira && !estadoAnterior) {
           Serial.println("BT1");
-          envia_dispositivo("BT1", "rastreio/esp32/posto__/dispositivo", 1);
+          envia_dispositivo("BT1", MQTT_TOPIC);
         } 
         else if (!estadoEstavel_parafusadeira && estadoAnterior) {
           Serial.println("BT2");
-          envia_dispositivo("BT2", "rastreio/esp32/posto__/dispositivo", 1);
+          envia_dispositivo("BT2", MQTT_TOPIC);
         }
       }
     }

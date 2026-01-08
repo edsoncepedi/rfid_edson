@@ -4,6 +4,11 @@
 #include <WiFi.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <HTTPClient.h>
+#include "esp_task_wdt.h"
+#include <ArduinoJson.h>
+#include "secrets.h"
+#include "base64.h"
 
 
 TaskHandle_t reconnect_Task; 
@@ -32,13 +37,9 @@ void callback(char* topic, byte* message, unsigned int length);
 void taks_ManterConexao(void* pVParams);
 void task_enviarDados(void* pvParams);
 void reconnect();
-void envia_dispositivo(char* mensagem, char* topico, uint8_t numero);
+void envia_dispositivo(char* mensagem, char* topico);
+void baixarConfigPrivada();
 
-int numero_posto = 20;
-
-char topico_dispositivo[40];
-char topico_sistema[35];
-char id_posto[15];
 
 char msg[50];    // Buffer para armazenar a mensagem
 char topic[50];  //Topico enviar dado
@@ -49,24 +50,24 @@ typedef struct {
 } mqtt_message_t;
 
 /* ======================================== SSID e Senha da Wifi */
-const char* ssid = "gemeodigital";
-const char* password = "gd@2025p";
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASS;
 
-const char* mqtt_server = "172.16.10.175";
+String apiUrl = API_URL_AZURE;
+const char* patToken = PAT_AZURE;
+
+String mqtt_server = "172.16.10.184";
+int mqtt_port = 1883;
 
 //Declarando objeto Wifi
 WiFiClient espClient; // Cliente Wi-Fi para comunicação com o broker MQTT
 
 //Declarando objeto MQTT
-PubSubClient client(mqtt_server, 1883, callback, espClient); // Cliente MQTT usando o cliente Wi-Fi
+PubSubClient client(espClient); // Cliente MQTT usando o cliente Wi-Fi
 
 
 
 void setup_mqtt(){
-  snprintf(topico_dispositivo, sizeof(topico_dispositivo), "rastreio_nfc/esp32/posto_%d/dispositivo", numero_posto);
-  snprintf(topico_sistema, sizeof(topico_sistema), "rastreio_nfc/esp32/posto_%d/sistema", numero_posto);
-  snprintf(id_posto, sizeof(id_posto), "posto_%d", numero_posto);
-
   WiFi.mode(WIFI_STA);
   Serial.println("------------");
   Serial.print("Conectando-se a ");
@@ -88,6 +89,11 @@ void setup_mqtt(){
       ESP.restart();
     }
   }
+  
+  baixarConfigPrivada();
+
+  client.setServer(mqtt_server.c_str(), mqtt_port);
+  client.setCallback(callback);
 
   //Tasks
   mqttQueue = xQueueCreate(30, sizeof(mqtt_message_t));  // até 30 mensagens
@@ -117,7 +123,7 @@ void callback(char* topic, byte* message, unsigned int length) {
 
 
   /** Enviar ID ao ser solicitado **/
-  envia_dispositivo(CARTAO.value/*TAG*/ , "rastreio/esp32/posto__/dispositivo",posto); //envia tag
+  envia_dispositivo(CARTAO.value/*TAG*/ , MQTT_TOPIC); //envia tag
 
    // Serial.println(topic[29]);
 
@@ -157,15 +163,67 @@ void task_enviarDados(void* pvParams) {
   }
 }
 
+void baixarConfigPrivada() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+
+    String auth = ":" + String(patToken);               // Atenção: ':' antes do PAT
+    auth = base64::encode(auth);                        // Codifica em Base64
+    String headerAuth = "Basic " + auth;
+
+    http.begin(apiUrl);
+    http.addHeader("User-Agent", "ESP32");
+    http.addHeader("Authorization", headerAuth);
+    http.addHeader("Cache-Control", "no-cache");
+    http.addHeader("Pragma", "no-cache"); 
+
+    int httpCode = http.GET();
+
+    if (httpCode == 200) {
+      String response = http.getString();
+
+      Serial.println("Resposta da API:");
+      Serial.println(response);
+
+      // Interpretar JSON
+      StaticJsonDocument<1024> doc;
+      DeserializationError err = deserializeJson(doc, response);
+
+      if (err) {
+        Serial.print("Erro ao interpretar JSON: ");
+        Serial.println(err.c_str());
+        return;
+      }
+
+      mqtt_server = doc["mqtt_server"].as<String>(); 
+      mqtt_port = doc["mqtt_port"].as<int>();
+
+
+      // Debug
+      Serial.print("mqtt_server: ");
+      Serial.println(mqtt_server);
+
+      Serial.print("mqtt_port: ");
+      Serial.println(mqtt_port);
+
+
+    } else {
+      Serial.printf("Erro HTTP: %d\n", httpCode);
+    }
+
+    http.end();
+  }
+}
+
 // Função para reconectar ao broker MQTT caso a conexão seja perdida
 void reconnect() {
     while (!client.connected()) 
     {
       Serial.print("Attempting MQTT connection...");
       // Tenta conectar com o ID "camera1", informação de usuário e senha para o broker mqtt
-      if (client.connect(id_posto, id_posto, "cepedi123"))
+      if (client.connect(USER_MQTT, USER_MQTT, "cepedi123"))
       {
-        client.subscribe("rastreio/esp32/posto_0/sistema");
+       // client.subscribe("rastreio/esp32/posto_0/sistema");
        
         
         Serial.println("connected");     // Se a conexão for bem-sucedida
@@ -182,11 +240,10 @@ void reconnect() {
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 
-void envia_dispositivo(char* mensagem, char* topico,uint8_t numero){
+void envia_dispositivo(char* mensagem, char* topico){
   mqtt_message_t msg;
 
   strncpy(msg.topic, topico, sizeof(msg.topic));
-  msg.topic[21] = numero+48; //substituir e converter o numero para char
   msg.topic[sizeof(msg.topic) - 1] = '\0'; // garante null-termination
 
   strncpy(msg.payload, mensagem, sizeof(msg.payload));
