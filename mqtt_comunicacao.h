@@ -14,6 +14,7 @@
 TaskHandle_t reconnect_Task; 
 TaskHandle_t envio_Task; 
 QueueHandle_t mqttQueue;
+TaskHandle_t erro_na_linha_Task;
 
 
 //estrutura do cartao
@@ -28,8 +29,8 @@ struct cartao{
   uint8_t verificacao=0;
 };
 
-  
 
+#define Buzzer 4
 
 cartao CARTAO; //struct cartao
 
@@ -39,6 +40,8 @@ void task_enviarDados(void* pvParams);
 void reconnect();
 void envia_dispositivo(char* mensagem, char* topico);
 void baixarConfigPrivada();
+void beep();
+void erro_na_linha(void * pvParameters);
 
 
 char msg[50];    // Buffer para armazenar a mensagem
@@ -101,35 +104,66 @@ void setup_mqtt(){
   xTaskCreatePinnedToCore(&taks_ManterConexao, "taks_ManterConexao", 8192, NULL, 4, NULL, 1);
 }
 
-// Função de callback que é chamada sempre que uma nova mensagem chega a um tópico inscrito
 void callback(char* topic, byte* message, unsigned int length) {
-  uint8_t posto;
-
-  Serial.print("Messagem chegou ao topico: ");  // Imprime o tópico
+  Serial.print("Message arrived on topic: ");  // Imprime o tópico
   Serial.print(topic);
-  Serial.print("\nMessagem: ");
+  Serial.print(". Message: ");
   
   String messageTemp = "";  // String temporária para armazenar a mensagem recebida
 
-  posto = message[0]-48;
   // Imprime e armazena os dados da mensagem
   for (int i = 0; i < length; i++) { 
     messageTemp += (char)message[i]; // Adiciona o byte à string messageTemp
   }
-  Serial.println(messageTemp);
-  Serial.println(posto);
-
-/*  Permitir o envio manual apenas quando solicitado no proprio posto*/
-
-
-  /** Enviar ID ao ser solicitado **/
-  envia_dispositivo(CARTAO.value/*TAG*/ , MQTT_TOPIC); //envia tag
-
-   // Serial.println(topic[29]);
-
+  Serial.println("messageTemp");
+  if(messageTemp == "erro_0"){
+      envia_dispositivo(CARTAO.value/*TAG*/ , MQTT_TOPIC);
+  }  
+  if(messageTemp == "iniciar_erro_1"){
+      xTaskCreatePinnedToCore(
+        erro_na_linha,     /* Função da Task. */
+        "erro_na_linha",   /* Nome da Task. */
+        2000,                    /* Memória destinada a Task */
+        NULL,                      /* Parâmetro para Task */
+        2,                        /* Nível de prioridade da Task */
+        &erro_na_linha_Task,              /* Handle da Task */
+        0);                       /* Núcleo onde a task é executada 0 ou 1 */
+  }
+  else if(messageTemp == "parar_erro_1"){
+    digitalWrite(Buzzer, LOW);
+    vTaskDelete(erro_na_linha_Task);
+  }
   
+  else if(String(topic) == "info_mac_rastreadores")
+  {
+    String mac = WiFi.macAddress();
+    client.publish(MAC_TOPIC, mac.c_str());
+  }
 
+  else if(String(topic) == "info_ip_rastreadores")
+  {
+    String ip = WiFi.localIP().toString();
+    client.publish(IP_TOPIC, ip.c_str());
+  }    
 }
+
+void beep(){
+    digitalWrite(Buzzer, HIGH);
+    vTaskDelay(50);
+    digitalWrite(Buzzer, LOW);
+}
+
+void erro_na_linha(void * pvParameters){
+  while(1){
+    beep();
+    vTaskDelay(50);
+    beep();
+    vTaskDelay(50);
+    beep();
+    vTaskDelay(500);
+  }
+}
+
 void taks_ManterConexao(void* pVParams) 
 {
   while (1) 
@@ -223,9 +257,9 @@ void reconnect() {
       // Tenta conectar com o ID "camera1", informação de usuário e senha para o broker mqtt
       if (client.connect(USER_MQTT, USER_MQTT, "cepedi123"))
       {
-       // client.subscribe("rastreio/esp32/posto_0/sistema");
-       
-        
+        client.subscribe(SISTEMA_TOPIC);
+        client.subscribe("info_ip_rastreadores");
+        client.subscribe("info_mac_rastreadores");
         Serial.println("connected");     // Se a conexão for bem-sucedida
       } 
       else 
