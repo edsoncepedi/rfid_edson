@@ -301,12 +301,12 @@ void monitoramento_Parafusadeira ( void * pvParameters ) {
         estadoEstavel_parafusadeira = leituraAtual;
 
         if (estadoEstavel_parafusadeira && !estadoAnterior) {
-          Serial.println("BT1");
-          envia_dispositivo("BT1", MQTT_TOPIC);
-        } 
-        else if (!estadoEstavel_parafusadeira && estadoAnterior) {
           Serial.println("BT2");
           envia_dispositivo("BT2", MQTT_TOPIC);
+        } 
+        else if (!estadoEstavel_parafusadeira && estadoAnterior) {
+          Serial.println("BT1");
+          envia_dispositivo("BT1", MQTT_TOPIC);
         }
       }
     }
