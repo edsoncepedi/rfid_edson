@@ -277,8 +277,8 @@ void mfrc522_fast_Reset(uint8_t reader) {
   mfrc522.PCD_AntennaOn();            // Enable the antenna driver pins TX1 and TX2 (they were disabled by the reset)
 }
 
-bool leituraAnterior_parafusadeira = true;    
-bool estadoEstavel_parafusadeira = false;             // Estado final confiável
+bool leituraAnterior_parafusadeira = false;    
+bool estadoEstavel_parafusadeira = true;             // Estado final confiável
 const int tempoDebounce_parafusadeira = 100;
 unsigned long tempoUltimaLeitura_parafusadeira = 0;  // Quando a mudança começou
 
