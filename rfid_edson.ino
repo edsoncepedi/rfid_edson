@@ -5,7 +5,6 @@ void setup()
 {
   
 pinMode(15, OUTPUT);
-pinMode(4, OUTPUT); //dados led
 pinMode(2, INPUT_PULLUP);
   
 
@@ -39,18 +38,6 @@ pinMode(2, INPUT_PULLUP);
     &LerIDHandle,  // Task handle
     0                  // Core 0
   );
-  
-  // Essa task é responsável por monitorar o comportamento dos botões
-  xTaskCreatePinnedToCore(
-    monitoramento_Parafusadeira,          /* Função da Task. */
-    "monitoramento_Parafusadeira",        /* Nome da Task. */
-    2048,           /* Memória destinada a Task */
-    NULL,           /* Parâmetro para Task */
-    3,              /* Nível de prioridade da Task */
-    &monitoramento_Parafusadeira_Task,    /* Handle da Task */
-    0);             /* Núcleo onde a task é executada 0 ou 1 */
-  /* ---------------------------------------- */ 
-
   
 }
 void loop() 

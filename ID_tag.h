@@ -12,16 +12,14 @@
 #include "secrets.h"
 
 TaskHandle_t LerIDHandle = NULL;
-TaskHandle_t monitoramento_Parafusadeira_Task;
 
 //pinos de dados
-#define MISO_PIN        12
-#define MOSI_PIN        13
-#define SCK_PIN         14
-#define SS_PIN          15
-#define RST_PIN         19
-#define parafusadeira   2 
-//#define N_LEITOR 3 //quantidade de leitores
+#define MISO_PIN        19
+#define MOSI_PIN        23
+#define SCK_PIN         18
+#define SS_PIN          5
+#define RST_PIN         22
+
 
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance
@@ -180,7 +178,7 @@ void LerID(void *parameter){
     CARTAO.LIDO = false;
     CARTAO.verificacao = 0;
 
-    envia_dispositivo( "BD" , MQTT_TOPIC); //envia saida
+    //envia_dispositivo( "BD" , MQTT_TOPIC); //envia saida
 
 
   }
@@ -277,39 +275,4 @@ void mfrc522_fast_Reset(uint8_t reader) {
   mfrc522.PCD_AntennaOn();            // Enable the antenna driver pins TX1 and TX2 (they were disabled by the reset)
 }
 
-bool leituraAnterior_parafusadeira = false;    
-bool estadoEstavel_parafusadeira = true;             // Estado final confiável
-const int tempoDebounce_parafusadeira = 100;
-unsigned long tempoUltimaLeitura_parafusadeira = 0;  // Quando a mudança começou
 
-void monitoramento_Parafusadeira ( void * pvParameters ) {
-  while(1){
-    bool leituraAtual = digitalRead(parafusadeira);
-
-    // Se a leitura mudou em relação à anterior
-    if (leituraAtual != leituraAnterior_parafusadeira) {
-      leituraAnterior_parafusadeira = leituraAtual;
-      tempoUltimaLeitura_parafusadeira = millis();  // Marca o tempo da mudança
-    }
-
-    // Se o tempo de estabilidade foi atingido
-    if ((millis() - tempoUltimaLeitura_parafusadeira) > tempoDebounce_parafusadeira) {
-      // E se o estado ainda não foi atualizado
-      if (leituraAtual != estadoEstavel_parafusadeira) {
-        // Aqui temos uma mudança de borda real, com debounce
-        bool estadoAnterior = estadoEstavel_parafusadeira;
-        estadoEstavel_parafusadeira = leituraAtual;
-
-        if (estadoEstavel_parafusadeira && !estadoAnterior) {
-          Serial.println("BT2");
-          envia_dispositivo("BT2", MQTT_TOPIC);
-        } 
-        else if (!estadoEstavel_parafusadeira && estadoAnterior) {
-          Serial.println("BT1");
-          envia_dispositivo("BT1", MQTT_TOPIC);
-        }
-      }
-    }
-    vTaskDelay(10 / portTICK_PERIOD_MS);
-  }
-}

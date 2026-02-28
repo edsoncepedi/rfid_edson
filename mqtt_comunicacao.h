@@ -14,7 +14,6 @@
 TaskHandle_t reconnect_Task; 
 TaskHandle_t envio_Task; 
 QueueHandle_t mqttQueue;
-TaskHandle_t erro_na_linha_Task;
 
 
 //estrutura do cartao
@@ -30,7 +29,7 @@ struct cartao{
 };
 
 
-#define Buzzer 4
+//#define Buzzer 4
 
 cartao CARTAO; //struct cartao
 
@@ -39,9 +38,8 @@ void taks_ManterConexao(void* pVParams);
 void task_enviarDados(void* pvParams);
 void reconnect();
 void envia_dispositivo(char* mensagem, char* topico);
-void baixarConfigPrivada();
-void beep();
-void erro_na_linha(void * pvParameters);
+//void baixarConfigPrivada();
+
 
 
 char msg[50];    // Buffer para armazenar a mensagem
@@ -59,7 +57,7 @@ const char* password = WIFI_PASS;
 String apiUrl = API_URL_AZURE;
 const char* patToken = PAT_AZURE;
 
-String mqtt_server = "172.16.10.184";
+String mqtt_server = "172.16.10.175";
 int mqtt_port = 1883;
 
 //Declarando objeto Wifi
@@ -93,7 +91,7 @@ void setup_mqtt(){
     }
   }
   
-  baixarConfigPrivada();
+  //baixarConfigPrivada();
 
   client.setServer(mqtt_server.c_str(), mqtt_port);
   client.setCallback(callback);
@@ -119,21 +117,7 @@ void callback(char* topic, byte* message, unsigned int length) {
   if(messageTemp == "erro_0"){
       envia_dispositivo(CARTAO.value/*TAG*/ , MQTT_TOPIC);
   }  
-  if(messageTemp == "iniciar_erro_1"){
-      xTaskCreatePinnedToCore(
-        erro_na_linha,     /* Função da Task. */
-        "erro_na_linha",   /* Nome da Task. */
-        2000,                    /* Memória destinada a Task */
-        NULL,                      /* Parâmetro para Task */
-        2,                        /* Nível de prioridade da Task */
-        &erro_na_linha_Task,              /* Handle da Task */
-        0);                       /* Núcleo onde a task é executada 0 ou 1 */
-  }
-  else if(messageTemp == "parar_erro_1"){
-    digitalWrite(Buzzer, LOW);
-    vTaskDelete(erro_na_linha_Task);
-  }
-  
+
   else if(String(topic) == "info_mac_rastreadores")
   {
     String mac = WiFi.macAddress();
@@ -145,23 +129,6 @@ void callback(char* topic, byte* message, unsigned int length) {
     String ip = WiFi.localIP().toString();
     client.publish(IP_TOPIC, ip.c_str());
   }    
-}
-
-void beep(){
-    digitalWrite(Buzzer, HIGH);
-    vTaskDelay(50);
-    digitalWrite(Buzzer, LOW);
-}
-
-void erro_na_linha(void * pvParameters){
-  while(1){
-    beep();
-    vTaskDelay(50);
-    beep();
-    vTaskDelay(50);
-    beep();
-    vTaskDelay(500);
-  }
 }
 
 void taks_ManterConexao(void* pVParams) 
@@ -196,7 +163,7 @@ void task_enviarDados(void* pvParams) {
     }
   }
 }
-
+/*
 void baixarConfigPrivada() {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
@@ -248,6 +215,7 @@ void baixarConfigPrivada() {
     http.end();
   }
 }
+*/
 
 // Função para reconectar ao broker MQTT caso a conexão seja perdida
 void reconnect() {
